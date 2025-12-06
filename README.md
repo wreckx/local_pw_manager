@@ -1,5 +1,5 @@
-#Personal Password Manager
-##Personal Project
+# Personal Password Manager
+## Personal Project
 
 This is a GUI personal password manager that uses python as base and stores password in an offline database located in your local drive.
 The manager should do the following:
