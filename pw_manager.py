@@ -60,17 +60,37 @@ def create_password(text1, text2, label):
         text1.focus()
         
 def password_manager():
-    window.geometry("600x400")
+    window.geometry("700x500")
     lbl_title = Label(window, text="Personal Password Manager", font=("Garamond", 18))
     lbl_title.pack(pady=10)
     lbl_title.config(anchor=CENTER)
     
-    txt_search = Entry(window, font=("Garamond", 14), width=30, show="Enter username/website/email to search")
-    txt_search.pack(side="left")
+    fm_search = Frame(window)
+    fm_search.pack(fill='x', padx=10)
+    fm_search.columnconfigure(0, weight=1)
     
-    btn_search = Button(window, text="Search", width=15, font=("Garamond", 14))
-    btn_search.pack(side="right")
+    txt_search = Entry(fm_search, font=("Garamond", 14))
+    txt_search.grid(row=0, column=0, pady=5, columnspan=3, sticky='ew')
+    
+    btn_search = Button(fm_search, text="Search", font=("Garamond", 14))
+    btn_search.grid(row=0, column=3, padx=10, pady=5, sticky='w')
+    
+    fm_entries = Frame(window, borderwidth=1, relief="solid")
+    fm_entries.pack(fill='x', padx=10)
+    fm_entries.columnconfigure((0,1,2,3), weight=1)
+    
+    lbl_site = Label(fm_entries, text="Website", font=("Garamond", 14))
+    lbl_site.grid(row=0, column=0, pady=5, sticky='ew')
+    
+    lbl_username = Label(fm_entries, text="Username", font=("Garamond", 14))
+    lbl_username.grid(row=0, column=1, pady=5, sticky='ew')
+    
+    lbl_email = Label(fm_entries, text="Email", font=("Garamond", 14))
+    lbl_email.grid(row=0, column=2, pady=5, sticky='ew')
+    
+    lbl_password = Label(fm_entries, text="Password", font=("Garamond", 14))
+    lbl_password.grid(row=0, column=3, pady=5, sticky='ew')
 
-#password_manager()
-create_pwd_screen()
+password_manager()
+#create_pwd_screen()
 window.mainloop()
