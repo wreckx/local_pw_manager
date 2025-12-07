@@ -1,6 +1,9 @@
 import sqlite3, hashlib
 import mpw_hash
+import dbconfig as dbc
 from tkinter import *
+
+db, cursor = dbc.dbconfig()
 
 window = Tk()
 window.title("Password Manager")
@@ -30,7 +33,7 @@ def create_pwd_screen():
     btn_create.pack(pady=15)
 
 # opens a login window on startup to verify user credentials. 
-def login_screen():
+def get_pwd_screen():
     window.geometry("400x200")
     
     lbl_login = Label(window, text="Enter Password", font=("Garamond", 14))
@@ -44,22 +47,39 @@ def login_screen():
     lbl_error = Label(window, text="", font=("Garamond", 12), fg="red")
     lbl_error.pack()
     
-    btn_login = Button(window, text="Submit", width=20, font=("Garamond", 14), command=lambda: mpw_hash.verify_pwd(txt_login.get()))
-    btn_login.bind("<Enter>", mpw_hash.verify_pwd(txt_login.get()))
+    btn_login = Button(window, text="Submit", width=20, font=("Garamond", 14), command=lambda: get_password(txt_login.get(), lbl_error))
     btn_login.pack(pady=30)
 
-# Verifies the entered password for admin credentials against the stored password.    
+# Creates a master password and stores it in the database.    
 def create_password(text1, text2, label):
 
-    if text1.get() == text2.get():
-        print(mpw_hash.hash_pwd(text1.get())) # For testing purposes only. Remove in production. Import hashed password into the database.
+    if text1.get() == text2.get() and text1.get() != "":
+        query = "INSERT INTO master_password (password) VALUES (?);"
+        hashed_pwd = mpw_hash.hash_pwd(text1.get())
+        cursor.execute(query, (hashed_pwd,))
+        db.commit()
+        password_manager()
     else:
         label.config(text="Passwords do not match. Please try again.")
         text1.delete(0, 'end')
         text2.delete(0, 'end')
         text1.focus()
-        
+
+# Verifies the entered password against the stored hash in the database.        
+def get_password(password: str, label):
+    query = "SELECT password FROM master_password WHERE id = 1;"
+    cursor.execute(query)
+    res = cursor.fetchone()
+    hashed_pwd = res[0]
+    if (mpw_hash.verify_pwd(password, hashed_pwd)):
+        password_manager()
+    else:
+        label.config(text="Incorrect Password. Please try again.")
+    
 def password_manager():
+    for widget in window.winfo_children():
+        widget.destroy()
+    
     window.geometry("700x500")
     lbl_title = Label(window, text="Personal Password Manager", font=("Garamond", 18))
     lbl_title.pack(pady=10)
@@ -91,6 +111,12 @@ def password_manager():
     lbl_password = Label(fm_entries, text="Password", font=("Garamond", 14))
     lbl_password.grid(row=0, column=3, pady=5, sticky='ew')
 
-password_manager()
+#password_manager()
 #create_pwd_screen()
+cursor.execute("SELECT * FROM master_password;")
+if cursor.fetchall():
+    get_pwd_screen()
+else:
+    create_pwd_screen()
+
 window.mainloop()
