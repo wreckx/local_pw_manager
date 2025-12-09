@@ -1,11 +1,13 @@
 import customtkinter
 import mpw_hash
 import dbconfig as dbc
+import secrets
 from customtkinter import *
+from entry_dialog import EntryDialog
 
 db, cursor = dbc.dbconfig()
 
-customtkinter.set_appearance_mode("System")
+customtkinter.set_appearance_mode("dark")
 customtkinter.set_default_color_theme("green")
 
 root = CTk()
@@ -82,29 +84,90 @@ def password_manager():
     fm_search.columnconfigure(0, weight=1)
     
     txt_search = CTkEntry(fm_search, font=("Roboto", 14), placeholder_text="Search for website, username, or email...")
-    txt_search.grid(row=0, column=0, padx=5, pady=10, columnspan=3, sticky='ew')
+    txt_search.grid(row=0, column=0, padx=5, pady=(0, 10), columnspan=2, sticky="ew")
     
-    btn_search = CTkButton(fm_search, text="Search", font=("Roboto", 14))
-    btn_search.grid(row=0, column=3, padx=5, pady=10, sticky='w')
+    btn_search = CTkButton(fm_search, text="Search", font=("Roboto", 14), width=75)
+    btn_search.configure(command=lambda: search_entries(txt_search.get()))
+    btn_search.grid(row=0, column=1, padx=2, pady=(0, 10))
     
-    fm_entries = CTkFrame(root)
-    fm_entries.pack(fill='x', padx=10)
+    btn_add = CTkButton(fm_search, text="Add", font=("Roboto", 14), width=75)
+    btn_add.configure(command=lambda: add_entry())
+    btn_add.grid(row=0, column=2, padx=2, pady=(0, 10))
+    
+    btn_edit = CTkButton(fm_search, text="Edit", font=("Roboto", 14), width=75)
+    btn_edit.configure(state="disabled")
+    btn_edit.configure(command=lambda: edit_entry())
+    btn_edit.grid(row=0, column=3, padx=2, pady=(0, 10))
+    
+    btn_delete = CTkButton(fm_search, text="Delete", font=("Roboto", 14), width=75, fg_color="red", hover_color="dark red")
+    btn_delete.configure(state="disabled")
+    btn_delete.configure(command=lambda: delete_entry())
+    btn_delete.grid(row=0, column=4, padx=2, pady=(0, 10))
+    
+    fm_lbls = CTkFrame(root)
+    fm_lbls.pack(fill='x', padx=10)
+    fm_lbls.columnconfigure((0,1,2,3), weight=1)
+
+    lbl_entries = ["Website", "Username", "Email", "Password"]
+    for i in range(len(lbl_entries)):
+        lbl = CTkLabel(fm_lbls, text=lbl_entries[i], font=("Roboto", 14))
+        lbl.grid(row=0, column=i, padx=5, sticky="ew")
+        
+    load_entries()
+    
+def load_entries():
+    fm_entries = CTkScrollableFrame(root)
+    fm_entries.pack()
+    fm_entries.pack(fill='both', padx=10)
     fm_entries.columnconfigure((0,1,2,3), weight=1)
     
-    lbl_site = CTkLabel(fm_entries, text="Website", font=("Roboto", 14))
-    lbl_site.grid(row=0, column=0, pady=5, sticky='ew')
-    
-    lbl_username = CTkLabel(fm_entries, text="Username", font=("Roboto", 14))
-    lbl_username.grid(row=0, column=1, pady=5, sticky='ew')
-    
-    lbl_email = CTkLabel(fm_entries, text="Email", font=("Roboto", 14))
-    lbl_email.grid(row=0, column=2, pady=5, sticky='ew')
-    
-    lbl_password = CTkLabel(fm_entries, text="Password", font=("Roboto", 14))
-    lbl_password.grid(row=0, column=3, pady=5, sticky='ew')
+    query = "SELECT website, username, email, password FROM passwords;"
+    cursor.execute(query)
+    res = cursor.fetchall()
+    for i in range(len(res)):
+        for j in range(len(res[i])):
+            lbl = CTkLabel(fm_entries, text=res[i][j], font=("Roboto", 14))
+            lbl.grid(row=i, column=j, padx=5, pady=5, sticky="ew")
 
-#password_manager()
-#create_pwd_screen()
+def search_entries(search_term: str):
+    if search_term != "":
+        pass
+    pass
+    
+def add_entry():
+    window = EntryDialog(root)
+    window.grab_set()
+    window.title("Add New Entry")
+    window.btn_submit.configure(text="Save Entry", command=lambda: save_entry(
+        window.txt_website.get(),
+        window.txt_username.get(),
+        window.txt_email.get(),
+        window.txt_password.get()
+    ))
+        
+    def save_entry(website, username, email, password):
+        if website == "" or password == "":
+            window.lbl_error.configure(text="Website and Password fields cannot be empty.")
+        elif username == "" and email == "":
+            window.lbl_error.configure(text="Either Username or Email must be provided.")
+        else:
+            query = "INSERT INTO passwords (website, username, email, password) VALUES (?, ?, ?, ?);"
+            cursor.execute(query, (website, username, email, password))
+            db.commit()
+            window.grab_release
+            window.destroy()
+            load_entries()
+
+
+def edit_entry():
+    pass
+
+def delete_entry():
+    pass
+
+# password_manager()
+# add_entry()
+
 cursor.execute("SELECT * FROM master_password;")
 if cursor.fetchall():
     get_pwd_screen()
