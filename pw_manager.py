@@ -80,7 +80,7 @@ def load_entries(frame: CTkFrame):
             lbl = CTkLabel(frame, text=res[i][j], font=("Roboto", 14))
             lbl.grid(row=i, column=j, padx=5, pady=5, sticky="ew")
 
-# creates a window to set up a new admin password on first run.
+# opens a window to set up a new admin password on first run.
 def create_pwd_screen():
     window = CTkToplevel(root)
     window.title("Create Admin Password")
@@ -100,7 +100,7 @@ def create_pwd_screen():
     btn_create = CTkButton(window, text="Create Password", width=250, font=("Roboto", 14), command=lambda: [create_password(txt_create, txt_confirm, lbl_error), window.destroy()])
     btn_create.pack(pady=(0, 15))
 
-# opens a login window on startup to verify user credentials. 
+# opens a window to prompt for the master password on startup to verify user credentials. 
 def get_pwd_screen():
     window = CTkToplevel(root)
     window.title("Enter Admin Password")
@@ -117,7 +117,7 @@ def get_pwd_screen():
     btn_login = CTkButton(window, text="Submit", width=250, font=("Roboto", 14), command=lambda: [get_password(txt_login.get(), lbl_error), window.destroy()])
     btn_login.pack()
 
-# Creates a master password and stores it in the database.    
+# Creates a master password and stores it in the database (button event).    
 def create_password(text1, text2, label):
 
     if text1.get() == text2.get() and text1.get() != "":
@@ -131,7 +131,7 @@ def create_password(text1, text2, label):
         text2.delete(0, 'end')
         text1.focus()
 
-# Verifies the entered password against the stored hash in the database.        
+# Verifies the entered password against the stored hash in the database (button event).        
 def get_password(password: str, label):
     query = "SELECT password FROM master_password WHERE id = 1;"
     cursor.execute(query)
@@ -142,11 +142,29 @@ def get_password(password: str, label):
     else:
         label.configure(text="Incorrect Password. Please try again.")
 
-def search_entries(search_term: str):
-    if search_term != "":
-        pass
-    pass
+# Searches for password entries matching the search term and displays them. Returns all entries if search term is empty.
+def search_entries(search_term: str, frame: CTkFrame = root.fm_entries):
+    for widget in frame.winfo_children():
+        widget.destroy()
     
+    if search_term != "":
+        query = "SELECT website, username, email, password FROM passwords WHERE website LIKE ? OR username LIKE ? OR email LIKE ?;"
+        cursor.execute(query, (f"%{search_term}%", f"%{search_term}%", f"%{search_term}%"))
+        res = cursor.fetchall()
+            
+        if len(res) == 0:
+            lbl_nores = CTkLabel(frame, text="No results found.", font=("Roboto", 14))
+            lbl_nores.grid(row=0, column=1, columnspan=2, padx=5, pady=5, sticky="ew")
+            return
+        else:        
+            for i in range(len(res)):
+                for j in range(len(res[i])):
+                    lbl = CTkLabel(frame, text=res[i][j], font=("Roboto", 14))
+                    lbl.grid(row=i, column=j, padx=5, pady=5, sticky="ew")
+    else:
+        load_entries(frame)
+        
+# Opens a window to add a new password entry (Add button event).    
 def add_entry():
     window = EntryDialog(root)
     window.grab_set()
@@ -171,11 +189,12 @@ def add_entry():
             window.destroy()
             load_entries(root.fm_entries)
 
-
+# Opens a window to edit a selected existing password entry (Edit button event).
 def edit_entry():
     window = EntryDialog(root)
     window.grab_set()
 
+# Opens a window to delete a selected password entry (Delete button event).
 def delete_entry():
     pass
 
