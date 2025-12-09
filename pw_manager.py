@@ -173,7 +173,8 @@ def add_entry():
 
 
 def edit_entry():
-    pass
+    window = EntryDialog(root)
+    window.grab_set()
 
 def delete_entry():
     pass
