@@ -19,6 +19,7 @@ class PasswordManager(CTk):
         self.geometry("800x500")
         
         self.window = None
+        self.selected_index = None
         
         lbl_title = CTkLabel(self, text="Password Manager", font=("Roboto", 18))
         lbl_title.pack(pady=10)
@@ -40,12 +41,18 @@ class PasswordManager(CTk):
         self.btn_add.grid(row=0, column=2, padx=2, pady=(0, 10))
         
         self.btn_edit = CTkButton(self.fm_search, text="Edit", font=("Roboto", 14), width=75)
-        self.btn_edit.configure(state="disabled")
+        if self.selected_index is None:
+            self.btn_edit.configure(state="disabled")
+        else:
+            self.btn_edit.configure(state="normal")
         self.btn_edit.configure(command=lambda: edit_entry())
         self.btn_edit.grid(row=0, column=3, padx=2, pady=(0, 10))
         
         self.btn_delete = CTkButton(self.fm_search, text="Delete", font=("Roboto", 14), width=75, fg_color="red", hover_color="dark red")
-        self.btn_delete.configure(state="disabled")
+        if self.selected_index is None:
+            self.btn_delete.configure(state="disabled")
+        else:
+            self.btn_delete.configure(state="normal")
         self.btn_delete.configure(command=lambda: delete_entry())
         self.btn_delete.grid(row=0, column=4, padx=2, pady=(0, 10))
         
@@ -56,10 +63,11 @@ class PasswordManager(CTk):
         lbl_entries = ["", "Website", "Username", "Email", "Password"]
         for i in range(len(lbl_entries)):
             lbl = CTkLabel(fm_lbls, text=lbl_entries[i], font=("Roboto", 14))
-            lbl.grid(row=0, column=i, padx=5, sticky="ew")
+            lbl.grid(row=0, column=i, padx=5, sticky="w")
         
         self.fm_entries = Rolodex(self)
         self.fm_entries.pack(fill='both', expand=True, padx=10, pady=10)
+        
         
 db, cursor = dbc.dbconfig()
 

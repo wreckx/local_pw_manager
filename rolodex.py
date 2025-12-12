@@ -3,7 +3,8 @@ import customtkinter as ctk
 class Rolodex(ctk.CTkScrollableFrame):
     def __init__(self, root, **kwargs):
         super().__init__(root, **kwargs)
-        self.columnconfigure(0, weight=1)
+        self.columnconfigure(0, minsize=15)
+        self.columnconfigure((1,2,3,4), weight=1)
         
         self.color_selected = "green"
         self.color_unselected = "transparent"
@@ -13,15 +14,14 @@ class Rolodex(ctk.CTkScrollableFrame):
             
     def load_entries(self, entries):
         for i in range(len(entries)):
-            cb = ctk.CTkCheckBox(self, text="", fg_color=self.color_selected)
+            cb = ctk.CTkCheckBox(self, text="", width = 15, fg_color=self.color_selected)
             cb.configure(command=lambda r = i: self.select_row(r))
             cb.grid(row=i, column=0, pady=5)
-            # cb.grid_columnconfigure(0, minsize=10)
             for j in range(len(entries[i])):
-                btn = ctk.CTkButton(self, text=entries[i][j], font=("Roboto", 14), 
+                btn = ctk.CTkButton(self, text=entries[i][j], font=("Roboto", 14), width=2000, 
                                     corner_radius=0, fg_color=self.color_unselected)
                 btn.configure(command=lambda r=i: self.click_event(r))
-                btn.grid(row=i, column=j+1, pady=5, sticky="ew")
+                btn.grid(row=i, column=j+1, pady=5, sticky="w")
                 btn.bind("<Enter>", lambda e, r=i: self.hover_leave_event(r, self.color_hover))
                 btn.bind("<Leave>", lambda e, r=i: self.hover_leave_event(r, self.color_unselected))
         
@@ -39,8 +39,12 @@ class Rolodex(ctk.CTkScrollableFrame):
             if widget.grid_info()['row'] == row:
                 if isinstance(widget, ctk.CTkCheckBox):
                     widget.toggle()
-                    self.selected_index = row
-                    print(f"Selected index: {self.selected_index}")
+                    if widget.get() == 1:
+                        self.selected_index = row
+                        print(f"Selected index: {self.selected_index}")
+                    else:
+                        self.selected_index = None
+                        print(f"Selected index: {self.selected_index}")
             else:
                 if isinstance(widget, ctk.CTkButton):
                     widget.configure(fg_color=self.color_unselected)
