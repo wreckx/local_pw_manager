@@ -21,7 +21,7 @@ class PasswordManager(CTk):
         
         self.window = None
         self.selected_index = None
-        self.bind("<Button-1>", lambda event: update_buttons_state())
+        self.bind("<Button-1>", lambda event: self.update_buttons_state())
         
         lbl_title = CTkLabel(self, text="Password Manager", font=("Roboto", 18))
         lbl_title.pack(pady=10)
@@ -68,6 +68,16 @@ class PasswordManager(CTk):
         
         self.fm_entries = Rolodex(self)
         self.fm_entries.pack(fill='both', expand=True, padx=10, pady=10)
+        
+    # TODO: Fix function to update button states based on selection
+    def update_buttons_state(self):
+        self.selected_index = self.fm_entries.get_selected_index()
+        if self.selected_index is not None:
+            self.btn_edit.configure(state="normal")
+            self.btn_delete.configure(state="normal")
+        else:
+            self.btn_edit.configure(state="disabled")
+            self.btn_delete.configure(state="disabled")
 
         
 db, cursor = dbc.dbconfig()
@@ -190,7 +200,6 @@ def add_entry():
         window.txt_password.get()
     ))
     
-# TODO: FIX UPDATE FUNCTION (INSERTS)
 # Opens a window to edit a selected existing password entry (Edit button event).
 def edit_entry():
     query_update = "UPDATE passwords SET website = ?, username = ?, email = ?, password = ? WHERE id = ?;"
@@ -252,7 +261,7 @@ def delete_entry():
         window.destroy()
         load_entries(root.fm_entries)
     
-
+# Method that gets called for both add and edit buttons in entry dialog windows
 def save_entry(window, query, website, username, email, password, idx = None):
     if website == "" or password == "":
         window.lbl_error.configure(text="Website and Password fields cannot be empty.")
@@ -266,16 +275,9 @@ def save_entry(window, query, website, username, email, password, idx = None):
         db.commit()
         window.grab_release
         window.destroy()
+        load_entries(root.fm_entries)
+    root.update_buttons_state()
 
-# TODO: Fix function to update button states based on selection
-def update_buttons_state():
-    root.selected_index = root.fm_entries.get_selected_index()
-    if root.selected_index is not None:
-        root.btn_edit.configure(state="normal")
-        root.btn_delete.configure(state="normal")
-    else:
-        root.btn_edit.configure(state="disabled")
-        root.btn_delete.configure(state="disabled")
 
 cursor.execute("SELECT id = 1 FROM master_password;")
 if cursor.fetchone():
