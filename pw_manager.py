@@ -41,29 +41,27 @@ class PasswordManager(CTk):
         self.btn_add.grid(row=0, column=2, padx=2, pady=(0, 10))
         
         self.btn_edit = CTkButton(self.fm_search, text="Edit", font=("Roboto", 14), width=75)
-        if self.selected_index is None:
-            self.btn_edit.configure(state="disabled")
-        else:
-            self.btn_edit.configure(state="normal")
+        self.btn_edit.configure(state="disabled")
         self.btn_edit.configure(command=lambda: edit_entry())
         self.btn_edit.grid(row=0, column=3, padx=2, pady=(0, 10))
         
         self.btn_delete = CTkButton(self.fm_search, text="Delete", font=("Roboto", 14), width=75, fg_color="red", hover_color="dark red")
-        if self.selected_index is None:
-            self.btn_delete.configure(state="disabled")
-        else:
-            self.btn_delete.configure(state="normal")
+        self.btn_delete.configure(state="disabled")
         self.btn_delete.configure(command=lambda: delete_entry())
         self.btn_delete.grid(row=0, column=4, padx=2, pady=(0, 10))
         
         fm_lbls = CTkFrame(self)
         fm_lbls.pack(fill='x', padx=10)
-        fm_lbls.grid_columnconfigure((0,1,2,3,4), weight=1)
+        fm_lbls.columnconfigure(0, weight=0)
+        fm_lbls.columnconfigure((1,2,3,4), weight=1)
+        
+        fm_lbl_cb = CTkCheckBox(fm_lbls, text="", width = 15)
+        fm_lbl_cb.grid(row=0, column=0, padx=5)
 
-        lbl_entries = ["", "Website", "Username", "Email", "Password"]
+        lbl_entries = ["Website", "Username", "Email", "Password"]
         for i in range(len(lbl_entries)):
-            lbl = CTkLabel(fm_lbls, text=lbl_entries[i], font=("Roboto", 14))
-            lbl.grid(row=0, column=i, padx=5, sticky="w")
+            lbl = CTkLabel(fm_lbls, text=lbl_entries[i], font=("Roboto", 14), width=50)
+            lbl.grid(row=0, column=i+1, padx=5, sticky="ew")
         
         self.fm_entries = Rolodex(self)
         self.fm_entries.pack(fill='both', expand=True, padx=10, pady=10)
@@ -105,6 +103,8 @@ def create_pwd_screen():
     
     btn_create = CTkButton(root.window, text="Create Password", width=250, font=("Roboto", 14), command=lambda: create_password(txt_create, txt_confirm, lbl_error))
     btn_create.pack(pady=(0, 15))
+    
+    root.window.protocol("WM_DELETE_WINDOW", sys.exit)
 
 # opens a window to prompt for the master password on startup to verify user credentials. 
 def get_pwd_screen():
@@ -123,6 +123,8 @@ def get_pwd_screen():
     
     btn_login = CTkButton(root.window, text="Submit", width=250, font=("Roboto", 14), command=lambda: get_password(txt_login.get(), lbl_error))
     btn_login.pack()
+    
+    root.window.protocol("WM_DELETE_WINDOW", sys.exit)
 
 # Creates a master password and stores it in the database (button event).    
 def create_password(text1, text2, label):
