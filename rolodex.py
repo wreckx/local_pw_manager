@@ -1,24 +1,25 @@
 import customtkinter as ctk
 
 class Rolodex(ctk.CTkScrollableFrame):
-    def __init__(self, root):
-        super().__init__(root)
-        self.columnconfigure((0,1,2,3), weight=1)
+    def __init__(self, root, **kwargs):
+        super().__init__(root, **kwargs)
+        self.columnconfigure(0, weight=1)
         
-        self.color_selected = "blue"
+        self.color_selected = "green"
         self.color_unselected = "transparent"
-        self.color_hover = "dark blue"
+        self.color_hover = "dark green"
         
         self.selected_index = None
             
     def load_entries(self, entries):
         for i in range(len(entries)):
-            cb = ctk.CTkCheckBox(self, text="", fg_color=self.color_selected, width = 5)
+            cb = ctk.CTkCheckBox(self, text="", fg_color=self.color_selected)
             cb.configure(command=lambda r = i: self.select_row(r))
             cb.grid(row=i, column=0, pady=5)
+            # cb.grid_columnconfigure(0, minsize=10)
             for j in range(len(entries[i])):
                 btn = ctk.CTkButton(self, text=entries[i][j], font=("Roboto", 14), 
-                                    corner_radius=0, width=100, fg_color=self.color_unselected)
+                                    corner_radius=0, fg_color=self.color_unselected)
                 btn.configure(command=lambda r=i: self.click_event(r))
                 btn.grid(row=i, column=j+1, pady=5, sticky="ew")
                 btn.bind("<Enter>", lambda e, r=i: self.hover_leave_event(r, self.color_hover))
@@ -58,16 +59,16 @@ class Rolodex(ctk.CTkScrollableFrame):
         
         
 
-entries = [["Facebook", "rjlv", "sample@gmail.com", "password123"],
-           ["Instagram", "rex", "xxx@gmail.com", "mypassword"],
-           ["Twitter", "wreckx", "puma@gmail.com", "letmein"]]
+# entries = [["Facebook", "rjlv", "sample@gmail.com", "password123"],
+#            ["Instagram", "rex", "xxx@gmail.com", "mypassword"],
+#            ["Twitter", "wreckx", "puma@gmail.com", "letmein"]]
 
 
-root = ctk.CTk()
-root.geometry("600x400")
-rolodex = Rolodex(root)
-rolodex.pack(fill='both', expand=True)
+# root = ctk.CTk()
+# root.geometry("600x400")
+# rolodex = Rolodex(root)
+# rolodex.pack(fill='both', expand=True)
 
-rolodex.load_entries(entries)
+# rolodex.load_entries(entries)
 
-root.mainloop()
+# root.mainloop()

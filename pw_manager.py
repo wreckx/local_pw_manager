@@ -3,6 +3,7 @@ import mpw_hash
 import dbconfig as dbc
 from customtkinter import *
 from entry_dialog import EntryDialog
+from rolodex import Rolodex
 
 """
 Program prompts user to create a master password on first run. This password is hashed and stored in the database.
@@ -13,12 +14,11 @@ Only users who know the master password can view, add, edit, or delete stored pa
 class PasswordManager(CTk):
     def __init__(self):
         super().__init__()
-        
-        for widget in self.winfo_children():
-            widget.destroy()
             
         self.title("Password Manager")
         self.geometry("800x500")
+        
+        self.window = None
         
         lbl_title = CTkLabel(self, text="Password Manager", font=("Roboto", 18))
         lbl_title.pack(pady=10)
@@ -51,21 +51,15 @@ class PasswordManager(CTk):
         
         fm_lbls = CTkFrame(self)
         fm_lbls.pack(fill='x', padx=10)
-        fm_lbls.columnconfigure((0,1,2,3), weight=1)
+        fm_lbls.grid_columnconfigure((0,1,2,3,4), weight=1)
 
-        lbl_entries = ["Website", "Username", "Email", "Password"]
+        lbl_entries = ["", "Website", "Username", "Email", "Password"]
         for i in range(len(lbl_entries)):
             lbl = CTkLabel(fm_lbls, text=lbl_entries[i], font=("Roboto", 14))
             lbl.grid(row=0, column=i, padx=5, sticky="ew")
         
-        self.fm_entries = CTkScrollableFrame(self)
-        self.fm_entries.pack()
+        self.fm_entries = Rolodex(self)
         self.fm_entries.pack(fill='both', expand=True, padx=10, pady=10)
-        self.fm_entries.columnconfigure((0,1,2,3), weight=1)
-        
-        for widget in self.fm_entries.winfo_children():
-            if isinstance(widget, CTkButton):
-                pass
         
 db, cursor = dbc.dbconfig()
 
@@ -75,51 +69,51 @@ customtkinter.set_default_color_theme("green")
 root = PasswordManager()
 
 # loads all password entries from the database and displays them in the main window.        
-def load_entries(frame: CTkFrame):
+def load_entries(frame: Rolodex):
+    for widget in frame.winfo_children():
+        widget.destroy()
+        
     query = "SELECT website, username, email, password FROM passwords;"
     cursor.execute(query)
     res = cursor.fetchall()
-    for i in range(len(res)):
-        for j in range(len(res[i])):
-            btn = CTkLabel(frame, text=res[i][j], font=("Roboto", 14), corner_radius=0, width=100)
-            btn.grid(row=i, column=j, pady=5, sticky="ew")
+    frame.load_entries(res)
 
 # opens a window to set up a new admin password on first run.
 def create_pwd_screen():
-    window = CTkToplevel(root)
-    window.title("Create Admin Password")
-    window.geometry ("400x200")
-    window.grab_set()
+    root.window = CTkToplevel(root)
+    root.window.title("Create Admin Password")
+    root.window.geometry ("400x200")
+    root.window.grab_set()
     
-    txt_create = CTkEntry(window, show="*", font=("Roboto", 14), width=250, placeholder_text="Create Admin Password")
+    txt_create = CTkEntry(root.window, show="*", font=("Roboto", 14), width=250, placeholder_text="Create Admin Password")
     txt_create.pack(pady=(40, 10))
     txt_create.focus()
     
-    txt_confirm = CTkEntry(window, show="*", font=("Roboto", 14), width=250, placeholder_text="Confirm Admin Password")
+    txt_confirm = CTkEntry(root.window, show="*", font=("Roboto", 14), width=250, placeholder_text="Confirm Admin Password")
     txt_confirm.pack()
     
-    lbl_error = CTkLabel(window, text="", font=("Roboto", 12), text_color="red")
+    lbl_error = CTkLabel(root.window, text="", font=("Roboto", 12), text_color="red")
     lbl_error.pack()
     
-    btn_create = CTkButton(window, text="Create Password", width=250, font=("Roboto", 14), command=lambda: [create_password(txt_create, txt_confirm, lbl_error), window.destroy()])
+    btn_create = CTkButton(root.window, text="Create Password", width=250, font=("Roboto", 14), command=lambda: create_password(txt_create, txt_confirm, lbl_error))
     btn_create.pack(pady=(0, 15))
 
 # opens a window to prompt for the master password on startup to verify user credentials. 
 def get_pwd_screen():
-    window = CTkToplevel(root)
-    window.title("Enter Admin Password")
-    window.geometry("400x200")
-    window.grab_set()
+    root.window = CTkToplevel(root)
+    root.window.title("Enter Admin Password")
+    root.window.geometry("400x200")
+    root.window.grab_set()
     
-    txt_login = CTkEntry(window, show="*", font=("Roboto", 14), width=250, placeholder_text="Enter Admin Password")
+    txt_login = CTkEntry(root.window, show="*", font=("Roboto", 14), width=250, placeholder_text="Enter Admin Password")
     txt_login.pack(pady=(40, 0))
-    txt_login.bind('<Return>', lambda event: [get_password(txt_login.get(), lbl_error), window.destroy()])
+    txt_login.bind('<Return>', lambda event: get_password(txt_login.get(), lbl_error))
     txt_login.focus()
     
-    lbl_error = CTkLabel(window, text="", font=("Roboto", 12), text_color="red")
+    lbl_error = CTkLabel(root.window, text="", font=("Roboto", 12), text_color="red")
     lbl_error.pack()
     
-    btn_login = CTkButton(window, text="Submit", width=250, font=("Roboto", 14), command=lambda: [get_password(txt_login.get(), lbl_error), window.destroy()])
+    btn_login = CTkButton(root.window, text="Submit", width=250, font=("Roboto", 14), command=lambda: get_password(txt_login.get(), lbl_error))
     btn_login.pack()
 
 # Creates a master password and stores it in the database (button event).    
@@ -130,6 +124,8 @@ def create_password(text1, text2, label):
         hashed_pwd = mpw_hash.hash_pwd(text1.get())
         cursor.execute(query, (hashed_pwd,))
         db.commit()
+        load_entries(root.fm_entries)
+        root.window.destroy()
     else:
         label.configure(text="Passwords do not match. Please try again.")
         text1.delete(0, 'end')
@@ -144,14 +140,12 @@ def get_password(password: str, label):
     hashed_pwd = res[0]
     if (mpw_hash.verify_pwd(password, hashed_pwd)):
         load_entries(root.fm_entries)
+        root.window.destroy()
     else:
         label.configure(text="Incorrect Password. Please try again.")
 
 # Searches for password entries matching the search term and displays them. Returns all entries if search term is empty.
 def search_entries(search_term: str, frame: CTkFrame = root.fm_entries):
-    for widget in frame.winfo_children():
-        widget.destroy()
-    
     if search_term != "":
         query = "SELECT website, username, email, password FROM passwords WHERE website LIKE ? OR username LIKE ? OR email LIKE ?;"
         cursor.execute(query, (f"%{search_term}%", f"%{search_term}%", f"%{search_term}%"))
@@ -203,8 +197,8 @@ def edit_entry():
 def delete_entry():
     pass
 
-cursor.execute("SELECT * FROM master_password;")
-if cursor.fetchall():
+cursor.execute("SELECT id = 1 FROM master_password;")
+if cursor.fetchone():
     get_pwd_screen()
 else:
     create_pwd_screen()
