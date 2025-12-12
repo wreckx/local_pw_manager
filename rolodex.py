@@ -13,6 +13,10 @@ class Rolodex(ctk.CTkScrollableFrame):
         self.selected_index = None
             
     def load_entries(self, entries):
+        for widget in self.winfo_children():
+            widget.destroy()
+        self.selected_index = None
+
         for i in range(len(entries)):
             cb = ctk.CTkCheckBox(self, text="", width = 15, fg_color=self.color_selected)
             cb.configure(command=lambda r = i: self.select_row(r))
@@ -41,10 +45,8 @@ class Rolodex(ctk.CTkScrollableFrame):
                     widget.toggle()
                     if widget.get() == 1:
                         self.selected_index = row
-                        print(f"Selected index: {self.selected_index}")
                     else:
                         self.selected_index = None
-                        print(f"Selected index: {self.selected_index}")
             else:
                 if isinstance(widget, ctk.CTkButton):
                     widget.configure(fg_color=self.color_unselected)
