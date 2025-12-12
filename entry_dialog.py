@@ -11,6 +11,7 @@ class EntryDialog(CTkToplevel):
 		lbl_website.grid(row=0, column=0, padx=(20,10), pady=(20, 10))
 		self.txt_website = CTkEntry(self, font=("Roboto", 14), width=250, placeholder_text="Enter website")
 		self.txt_website.grid(row=0, column=1, columnspan=3, pady=(20, 10), sticky="ew")
+		self.txt_website.focus()
 		
 		lbl_username = CTkLabel(self, text="Username:", font=("Roboto", 14))
 		lbl_username.grid(row=1, column=0, padx=(20,10), pady=(0, 10))

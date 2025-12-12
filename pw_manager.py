@@ -18,7 +18,7 @@ class PasswordManager(CTk):
             widget.destroy()
             
         self.title("Password Manager")
-        self.geometry("700x500")
+        self.geometry("800x500")
         
         lbl_title = CTkLabel(self, text="Password Manager", font=("Roboto", 18))
         lbl_title.pack(pady=10)
@@ -63,6 +63,10 @@ class PasswordManager(CTk):
         self.fm_entries.pack(fill='both', expand=True, padx=10, pady=10)
         self.fm_entries.columnconfigure((0,1,2,3), weight=1)
         
+        for widget in self.fm_entries.winfo_children():
+            if isinstance(widget, CTkButton):
+                pass
+        
 db, cursor = dbc.dbconfig()
 
 customtkinter.set_appearance_mode("dark")
@@ -77,8 +81,8 @@ def load_entries(frame: CTkFrame):
     res = cursor.fetchall()
     for i in range(len(res)):
         for j in range(len(res[i])):
-            lbl = CTkLabel(frame, text=res[i][j], font=("Roboto", 14))
-            lbl.grid(row=i, column=j, padx=5, pady=5, sticky="ew")
+            btn = CTkLabel(frame, text=res[i][j], font=("Roboto", 14), corner_radius=0, width=100)
+            btn.grid(row=i, column=j, pady=5, sticky="ew")
 
 # opens a window to set up a new admin password on first run.
 def create_pwd_screen():
@@ -109,6 +113,7 @@ def get_pwd_screen():
     
     txt_login = CTkEntry(window, show="*", font=("Roboto", 14), width=250, placeholder_text="Enter Admin Password")
     txt_login.pack(pady=(40, 0))
+    txt_login.bind('<Return>', lambda event: [get_password(txt_login.get(), lbl_error), window.destroy()])
     txt_login.focus()
     
     lbl_error = CTkLabel(window, text="", font=("Roboto", 12), text_color="red")
@@ -170,7 +175,7 @@ def add_entry():
     window.grab_set()
     window.title("Add New Entry")
     window.btn_submit.configure(text="Save Entry", command=lambda: save_entry(
-        window.txt_website.get(),
+        window.txt_website.get().capitalize(),
         window.txt_username.get(),
         window.txt_email.get(),
         window.txt_password.get()
@@ -197,8 +202,6 @@ def edit_entry():
 # Opens a window to delete a selected password entry (Delete button event).
 def delete_entry():
     pass
-
-# password_manager()
 
 cursor.execute("SELECT * FROM master_password;")
 if cursor.fetchall():
