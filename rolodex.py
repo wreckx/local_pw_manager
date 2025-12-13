@@ -1,24 +1,27 @@
 import customtkinter as ctk
+from customtkinter import ThemeManager
 
 class Rolodex(ctk.CTkScrollableFrame):
+    
     def __init__(self, root, **kwargs):
         super().__init__(root, **kwargs)
         self.columnconfigure(0, minsize=15)
         self.columnconfigure((1,2,3,4), weight=1)
         
-        self.color_selected = "green"
+        self.color_hover = "#106A43"
+        self.color_selected = "#2FA572"
         self.color_unselected = "transparent"
-        self.color_hover = "dark green"
-        
+
         self.selected_index = None
-            
+    
+    # used to load all entries from a list of lists to the rolodex.        
     def load_entries(self, entries):
         for widget in self.winfo_children():
             widget.destroy()
         self.selected_index = None
 
         for i in range(len(entries)):
-            cb = ctk.CTkCheckBox(self, text="", width = 15, fg_color=self.color_selected)
+            cb = ctk.CTkCheckBox(self, text="", width = 15)
             cb.configure(command=lambda r = i: self.select_row(r))
             cb.grid(row=i, column=0, pady=5)
             for j in range(len(entries[i])):
@@ -28,7 +31,8 @@ class Rolodex(ctk.CTkScrollableFrame):
                 btn.grid(row=i, column=j+1, pady=5, sticky="w")
                 btn.bind("<Enter>", lambda e, r=i: self.hover_leave_event(r, self.color_hover))
                 btn.bind("<Leave>", lambda e, r=i: self.hover_leave_event(r, self.color_unselected))
-        
+    
+    # changes the color of the entire row for any button hovered or left    
     def hover_leave_event(self, row, color):
         for widget in self.winfo_children():
             if widget.grid_info()['row'] == row:
@@ -37,12 +41,26 @@ class Rolodex(ctk.CTkScrollableFrame):
                         break
                 else:
                     widget.configure(fg_color=color)
-          
+    
+    # action event for buttons. treats buttons as extensions of the checkbox events.
+    # executes the action event for checkbox if any button in the same row is triggered.      
     def click_event(self, row):
         for widget in self.winfo_children():
             if widget.grid_info()['row'] == row:
                 if isinstance(widget, ctk.CTkCheckBox):
                     widget.toggle()
+                else:
+                    widget.configure(hover_color = self.color_selected)
+    
+    # action event for  checkbox. highlights all buttons on the same row as the selected checkbox
+    # and sets the selected index to the index of the selected entry. deselects other checkboxes  
+    # such that only one entry is selected for any given time.        
+    def select_row(self, row):
+        for widget in self.winfo_children():
+            if widget.grid_info()['row'] == row:
+                if isinstance(widget, ctk.CTkButton):
+                    widget.configure(fg_color=self.color_selected)
+                else:
                     if widget.get() == 1:
                         self.selected_index = row
                     else:
@@ -52,29 +70,13 @@ class Rolodex(ctk.CTkScrollableFrame):
                     widget.configure(fg_color=self.color_unselected)
                 if isinstance(widget, ctk.CTkCheckBox):
                     widget.deselect()
-            
-    def select_row(self, row):
+
+    # returns the values of the selected entry in the rolodex and returns it as a list.
+    def get_selected_entry(self) -> list:
+        entry_list = []
         for widget in self.winfo_children():
-            if isinstance(widget, ctk.CTkButton):
-                if widget.grid_info()['row'] == row:
-                    widget.configure(fg_color=self.color_selected)
-
-
-    def get_selected_index(self):
-        return self.selected_index
-        
-        
-
-# entries = [["Facebook", "rjlv", "sample@gmail.com", "password123"],
-#            ["Instagram", "rex", "xxx@gmail.com", "mypassword"],
-#            ["Twitter", "wreckx", "puma@gmail.com", "letmein"]]
-
-
-# root = ctk.CTk()
-# root.geometry("600x400")
-# rolodex = Rolodex(root)
-# rolodex.pack(fill='both', expand=True)
-
-# rolodex.load_entries(entries)
-
-# root.mainloop()
+            if widget.grid_info()['row'] == self.selected_index:
+                if isinstance(widget, ctk.CTkButton):
+                    text = widget.cget("text")
+                    entry_list.append(text)
+        return entry_list
