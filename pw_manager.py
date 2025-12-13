@@ -71,7 +71,7 @@ class PasswordManager(CTk):
         
     # TODO: Fix function to update button states based on selection
     def update_buttons_state(self):
-        self.selected_index = self.fm_entries.get_selected_index()
+        self.selected_index = self.fm_entries.get_selected_entry()
         if self.selected_index is not None:
             self.btn_edit.configure(state="normal")
             self.btn_delete.configure(state="normal")
@@ -125,7 +125,7 @@ def get_pwd_screen():
     
     txt_login = CTkEntry(root.window, show="*", font=("Roboto", 14), width=250, placeholder_text="Enter Admin Password")
     txt_login.pack(pady=(40, 0))
-    txt_login.bind('<Return>', lambda event: get_password(txt_login.get(), lbl_error))
+    txt_login.bind('<Return>', lambda event: get_password(txt_login, lbl_error))
     txt_login.focus()
     
     lbl_error = CTkLabel(root.window, text="", font=("Roboto", 12), text_color="red")
@@ -174,16 +174,14 @@ def search_entries(search_term: str, frame: Rolodex = root.fm_entries):
         cursor.execute(query, (f"%{search_term}%", f"%{search_term}%", f"%{search_term}%"))
         res = cursor.fetchall()
             
+        frame.load_entries(res)
+        
         if len(res) == 0:
             lbl_nores = CTkLabel(frame, text="No results found.", font=("Roboto", 14))
-            lbl_nores.grid(row=0, column=1, columnspan=2, padx=5, pady=5, sticky="ew")
-            return
-        else:
-            for widget in frame.winfo_children():
-                widget.destroy()
-            frame.load_entries(res)        
+            lbl_nores.grid(row=0, column=0, columnspan=5, padx=5, pady=5, sticky="ew")
     else:
         load_entries(frame)
+    root.update_buttons_state()
         
 # Opens a window to add a new password entry (Add button event).    
 def add_entry():
@@ -194,7 +192,7 @@ def add_entry():
     window.title("Add New Entry")
     window.btn_submit.configure(text="Add Entry", command=lambda: save_entry(
         window, query,
-        window.txt_website.get().capitalize(),
+        window.txt_website.get().lower(),
         window.txt_username.get(),
         window.txt_email.get(),
         window.txt_password.get()
@@ -203,36 +201,35 @@ def add_entry():
 # Opens a window to edit a selected existing password entry (Edit button event).
 def edit_entry():
     query_update = "UPDATE passwords SET website = ?, username = ?, email = ?, password = ? WHERE id = ?;"
-    idx = root.selected_index + 1
     try:
         window = EntryDialog(root)
         window.title("Edit Entry")
         window.grab_set()
         
-        query_fetch = "SELECT website, username, email, password FROM passwords WHERE id=?;"
-        cursor.execute(query_fetch, [idx])
+        query_fetch = "SELECT id FROM passwords WHERE website = ? AND username = ? AND email = ? AND password = ?;"
+        cursor.execute(query_fetch, root.selected_index)
         res = cursor.fetchone()
+        if res is None:
+            raise ValueError("No Entry Found")
         
-        window.txt_website.insert(0, res[0])
-        window.txt_username.insert(0, res[1])
-        window.txt_email.insert(0, res[2])
-        window.txt_password.insert(0, res[3])
+        window.txt_website.insert(0, root.selected_index[0])
+        window.txt_username.insert(0, root.selected_index[1])
+        window.txt_email.insert(0, root.selected_index[2])
+        window.txt_password.insert(0, root.selected_index[3])
 
         window.btn_submit.configure(text="Update Entry", command=lambda: save_entry(
             window, query_update,
-            window.txt_website.get().capitalize(),
+            window.txt_website.get().lower(),
             window.txt_username.get(),
             window.txt_email.get(),
             window.txt_password.get(),
-            idx
+            res[0]
         ))
     except Exception as e:
         exc_type, exc_value, exc_tb = sys.exc_info()
         line_number = exc_tb.tb_lineno
         print(f"ERROR: {type(e).__name__} on line {line_number}: {e}")
         
-
-# TODO FIX DELETE ENTRY FUNCTION
 # Opens a window to delete a selected password entry (Delete button event).
 def delete_entry():
     window = CTkToplevel(root)
@@ -241,6 +238,12 @@ def delete_entry():
     window.grab_set()
     
     window.columnconfigure((0, 1), weight = 1)
+    
+    query_fetch = "SELECT id FROM passwords WHERE website = ? AND username = ? AND email = ? AND password = ?;"
+    cursor.execute(query_fetch, root.selected_index)
+    res = cursor.fetchone()
+    if res is None:
+        raise ValueError("No entry found")
     
     lbl_confirm = CTkLabel(window, text="Are you sure you want to delete this entry?", font=("Roboto", 14))
     lbl_confirm.grid(column=0, row=0, padx=20, pady=(30, 10), sticky="ew", columnspan=2)
@@ -255,13 +258,16 @@ def delete_entry():
     
     def confirm_delete():
         query = "DELETE FROM passwords WHERE id = ?;"
-        cursor.execute(query, [root.selected_index + 1])
+        cursor.execute(query, [res[0]])
         db.commit()
-        window.grab_release
+        window.grab_release()
         window.destroy()
         load_entries(root.fm_entries)
+        root.update_buttons_state()
     
-# Method that gets called for both add and edit buttons in entry dialog windows
+# Function that gets called for both add and edit buttons in entry dialog windows.
+# Checks if website and password are not none, and ensures at least username or password is not none.
+# Adds a new entry if idx = None and updates a query otherwise. reloads entries and closes window.
 def save_entry(window, query, website, username, email, password, idx = None):
     if website == "" or password == "":
         window.lbl_error.configure(text="Website and Password fields cannot be empty.")

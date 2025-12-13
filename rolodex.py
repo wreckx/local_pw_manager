@@ -1,5 +1,4 @@
 import customtkinter as ctk
-from customtkinter import ThemeManager
 
 class Rolodex(ctk.CTkScrollableFrame):
     
@@ -73,6 +72,9 @@ class Rolodex(ctk.CTkScrollableFrame):
 
     # returns the values of the selected entry in the rolodex and returns it as a list.
     def get_selected_entry(self) -> list:
+        if self.selected_index == None:
+            return None
+        
         entry_list = []
         for widget in self.winfo_children():
             if widget.grid_info()['row'] == self.selected_index:
