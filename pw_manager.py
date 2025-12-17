@@ -21,11 +21,10 @@ class PasswordManager(CTk):
         self.title("Password Manager")
         self.geometry("800x500")
         
-        
         self.window: CTkToplevel = None
         self.selected_index = None
         self.selected_button = None
-        self.bind_all("<Button-1>", lambda event: self.update_buttons_state())
+        self.bind_all("<Button-1>", lambda event: self.update_element_states())
         
         lbl_title = CTkLabel(self, text="Password Manager", font=("Roboto", 18))
         lbl_title.pack(pady=10)
@@ -80,13 +79,15 @@ class PasswordManager(CTk):
             self.cryptographer.load_key(file)
         else:
             self.cryptographer.create_key(file)
-        
-    def update_buttons_state(self):
+    
+    # updates the states of the edit and delete buttons based on whether an entry is selected or not
+    # sets the selected index and selected button to the selected entry in the rolodex
+    # hides or reveals the password based on the selected button or entry
+    def update_element_states(self):
         self.selected_index = self.fm_entries.get_selected_entry()
         self.selected_button = self.fm_entries.selected_button
+        
         if self.selected_index is not None:
-            # if "<Hidden>" in self.selected_index:
-            #     self.selected_index.remove("<Hidden>")
             self.btn_edit.configure(state="normal")
             self.btn_delete.configure(state="normal")
         else:
@@ -119,9 +120,11 @@ def load_entries(frame: Rolodex):
         row.append("<Hidden>")
     
     frame.load_entries(res_mod)
-    
+
+# reveals the password for the selected entry if the password button of the selected
+# entry is clicked. Hides the password again if a different entry is clicked or
+# if the current entry is deselected.    
 def show_password():
-    
     if root.selected_index is None or root.selected_button is None:
         return
     try:
@@ -129,7 +132,7 @@ def show_password():
         params = (root.selected_index[0], root.selected_index[1], root.selected_index[2])
         cursor.execute(query, params)
         res = cursor.fetchone()
-        print(res[0])
+        
         if res is not None and root.selected_button.grid_info()['column'] == 4:
             decrypted_pwd = root.cryptographer.decrypt_passwd(res[0].decode())
             root.selected_button.configure(text=decrypted_pwd)
@@ -141,7 +144,7 @@ def show_password():
         print(f"ERROR: {type(e).__name__} on line {line_number}: {e}")
     
 # opens a window to set up a new admin password on first run.
-def create_pwd_screen():
+def create_mpw_screen():
     root.window = CTkToplevel(root)
     root.window.resizable(False, False)
     root.window.title("Create Admin Password")
@@ -158,13 +161,13 @@ def create_pwd_screen():
     lbl_error = CTkLabel(root.window, text="", font=("Roboto", 12), text_color="red")
     lbl_error.pack()
     
-    btn_create = CTkButton(root.window, text="Create Password", width=250, font=("Roboto", 14), command=lambda: create_password(txt_create, txt_confirm, lbl_error))
+    btn_create = CTkButton(root.window, text="Create Password", width=250, font=("Roboto", 14), command=lambda: create_master_password(txt_create, txt_confirm, lbl_error))
     btn_create.pack(pady=(0, 15))
     
     root.window.protocol("WM_DELETE_WINDOW", sys.exit)
 
 # opens a window to prompt for the master password on startup to verify user credentials. 
-def get_pwd_screen():
+def enter_mpw_screen():
     root.window = CTkToplevel(root)
     root.window.resizable(False, False)
     root.window.title("Enter Admin Password")
@@ -173,7 +176,7 @@ def get_pwd_screen():
     
     txt_login = CTkEntry(root.window, show="*", font=("Roboto", 14), width=250, placeholder_text="Enter Admin Password")
     txt_login.grid(row=0, column=0, columnspan=2, pady=(30, 0), padx=75)
-    txt_login.bind('<Return>', lambda event: get_password(txt_login, lbl_error))
+    txt_login.bind('<Return>', lambda event: get_master_password(txt_login, lbl_error))
     txt_login.focus()
     
     lbl_error = CTkLabel(root.window, text="", font=("Roboto", 12), text_color="red")
@@ -184,13 +187,13 @@ def get_pwd_screen():
     btn_cancel.grid(column=0, row=2, padx=(75, 5))
     
     btn_submit = CTkButton(root.window, text="Submit", font=("Roboto", 14), width=120)
-    btn_submit.configure(command=lambda: get_password(txt_login, lbl_error))
+    btn_submit.configure(command=lambda: get_master_password(txt_login, lbl_error))
     btn_submit.grid(column=1, row=2, padx=(5, 75))
     
     root.window.protocol("WM_DELETE_WINDOW", sys.exit)
 
-# Creates a master password and stores it in the database (button event).    
-def create_password(text1, text2, label):
+# Creates a master password and stores it in the database (Submit button event for create_mpw_screen).    
+def create_master_password(text1, text2, label):
 
     if text1.get() == text2.get() and text1.get() != "":
         query = "INSERT INTO master_password (password) VALUES (?);"
@@ -205,8 +208,8 @@ def create_password(text1, text2, label):
         text2.delete(0, 'end')
         text1.focus()
 
-# Verifies the entered password against the stored hash in the database (button event).        
-def get_password(text: CTkEntry, label):
+# Verifies the entered password against the stored hash in the database (Submit button event for enter_mpw_screen).        
+def get_master_password(text: CTkEntry, label):
     query = "SELECT password FROM master_password WHERE id = 1;"
     cursor.execute(query)
     res = cursor.fetchone()
@@ -234,7 +237,7 @@ def search_entries(search_term: str, frame: Rolodex = root.fm_entries):
             lbl_nores.grid(row=0, column=0, columnspan=5, padx=5, pady=5, sticky="ew")
     else:
         load_entries(frame)
-    root.update_buttons_state()
+    root.update_element_states()
         
 # Opens a window to add a new password entry (Add button event).    
 def add_entry():
@@ -322,9 +325,9 @@ def delete_entry():
         window.grab_release()
         window.destroy()
         load_entries(root.fm_entries)
-        root.update_buttons_state()
+        root.update_element_states()
     
-# Function that gets called for both add and edit buttons in entry dialog windows.
+# Function that gets called for both add and edit buttons in entry dialog windows (Confirm button event for Add and Edit button).
 # Checks if website and password are not none, and ensures at least username or password is not none.
 # Adds a new entry if idx = None and updates a query otherwise. reloads entries and closes window.
 def save_entry(window, query, website, username, email, password, idx = None):
@@ -342,14 +345,14 @@ def save_entry(window, query, website, username, email, password, idx = None):
         window.grab_release
         window.destroy()
         load_entries(root.fm_entries)
-    root.update_buttons_state()
+    root.update_element_states()
 
 
 
 cursor.execute("SELECT id = 1 FROM master_password;")
 if cursor.fetchone():
-    get_pwd_screen()
+    enter_mpw_screen()
 else:
-    create_pwd_screen()
+    create_mpw_screen()
 
 root.mainloop()
