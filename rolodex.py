@@ -11,7 +11,7 @@ class Rolodex(ctk.CTkScrollableFrame):
         self.color_selected = "#2FA572"
         self.color_unselected = "transparent"
 
-        self.selected_index: int = None
+        self.selected_row_index: int = None
         self.selected_button: ctk.CTkButton = None
         
         self.buttons: list[list[ctk.CTkButton]] = []
@@ -61,11 +61,11 @@ class Rolodex(ctk.CTkScrollableFrame):
     # such that only one entry is selected for any given time.        
     def select_row(self, row):
         if self.checkboxes[row].get() == 1:
-            self.selected_index = row
+            self.selected_row_index = row
             for button in self.buttons[row]:
                 button.configure(fg_color=self.color_selected)
         else:
-            self.selected_index = None
+            self.selected_row_index = None
                 
         for i, cb in enumerate(self.checkboxes):
             if i == row:
@@ -76,15 +76,14 @@ class Rolodex(ctk.CTkScrollableFrame):
 
     # returns the values of the selected entry in the rolodex and returns it as a list.
     def get_selected_entry(self) -> list:
-        if self.selected_index == None:
-            return None
-        
         entry_list = []
-        for widget in self.winfo_children():
-            if widget.grid_info()['row'] == self.selected_index:
-                if isinstance(widget, ctk.CTkButton):
-                    text = widget.cget("text")
-                    entry_list.append(text)
+        if self.selected_row_index == None:
+            return None
+
+        for button in self.buttons[self.selected_row_index]:
+            text = button.cget("text")
+            entry_list.append(text)
+
         return entry_list
     
     # resets the rolodex to its initial state by clearing all widgets and resetting
@@ -92,7 +91,7 @@ class Rolodex(ctk.CTkScrollableFrame):
     def reset_rolodex_state(self):
         for widget in self.winfo_children():
             widget.destroy()
-        self.selected_index: int = None
+        self.selected_row_index: int = None
         self.selected_button: ctk.CTkButton = None
         self.buttons: list[list[ctk.CTkButton]] = []
         self.checkboxes: list[ctk.CTkCheckBox] = []

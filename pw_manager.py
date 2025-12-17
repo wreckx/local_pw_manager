@@ -5,6 +5,8 @@ import dbconfig as dbc
 from customtkinter import *
 from entry_dialog import EntryDialog
 from rolodex import Rolodex
+from symmetric_encryption import SymmetricEncryption
+from pathlib import Path
 
 """
 Program prompts user to create a master password on first run. This password is hashed and stored in the database.
@@ -19,9 +21,11 @@ class PasswordManager(CTk):
         self.title("Password Manager")
         self.geometry("800x500")
         
-        self.window = None
+        
+        self.window: CTkToplevel = None
         self.selected_index = None
-        self.bind("<Button-1>", lambda event: self.update_buttons_state())
+        self.selected_button = None
+        self.bind_all("<Button-1>", lambda event: self.update_buttons_state())
         
         lbl_title = CTkLabel(self, text="Password Manager", font=("Roboto", 18))
         lbl_title.pack(pady=10)
@@ -69,15 +73,31 @@ class PasswordManager(CTk):
         self.fm_entries = Rolodex(self)
         self.fm_entries.pack(fill='both', expand=True, padx=10, pady=10)
         
-    # TODO: Fix function to update button states based on selection
+        self.cryptographer = SymmetricEncryption()
+        file = Path("password_key.key")
+        
+        if file.exists():
+            self.cryptographer.load_key(file)
+        else:
+            self.cryptographer.create_key(file)
+        
     def update_buttons_state(self):
         self.selected_index = self.fm_entries.get_selected_entry()
+        self.selected_button = self.fm_entries.selected_button
         if self.selected_index is not None:
+            # if "<Hidden>" in self.selected_index:
+            #     self.selected_index.remove("<Hidden>")
             self.btn_edit.configure(state="normal")
             self.btn_delete.configure(state="normal")
         else:
             self.btn_edit.configure(state="disabled")
             self.btn_delete.configure(state="disabled")
+        
+        if self.selected_button is not None:
+            for button in root.fm_entries.buttons:
+                button[3].configure(text="<Hidden>")
+            if self.selected_button.grid_info()['column'] == 4:
+                show_password()
 
         
 db, cursor = dbc.dbconfig()
@@ -87,16 +107,43 @@ customtkinter.set_default_color_theme("green")
 
 root = PasswordManager()
 
-# loads all password entries from the database and displays them in the main window.        
+# loads all password entries from the database and displays them in the main window.
+# appends a <Hidden> field for each record in the database to mask the password display.
 def load_entries(frame: Rolodex):        
-    query = "SELECT website, username, email, password FROM passwords;"
+    query = "SELECT website, username, email FROM passwords;"
     cursor.execute(query)
     res = cursor.fetchall()
-    frame.load_entries(res)
-
+    
+    res_mod = [list(row) for row in res]
+    for row in res_mod:
+        row.append("<Hidden>")
+    
+    frame.load_entries(res_mod)
+    
+def show_password():
+    
+    if root.selected_index is None or root.selected_button is None:
+        return
+    try:
+        query = "SELECT password FROM passwords WHERE website = ? AND username = ? AND email = ?;"
+        params = (root.selected_index[0], root.selected_index[1], root.selected_index[2])
+        cursor.execute(query, params)
+        res = cursor.fetchone()
+        print(res[0])
+        if res is not None and root.selected_button.grid_info()['column'] == 4:
+            decrypted_pwd = root.cryptographer.decrypt_passwd(res[0].decode())
+            root.selected_button.configure(text=decrypted_pwd)
+        else:
+            root.selected_button.configure(text="<Hidden>")
+    except Exception as e:
+        exc_type, exc_value, exc_tb = sys.exc_info()
+        line_number = exc_tb.tb_lineno
+        print(f"ERROR: {type(e).__name__} on line {line_number}: {e}")
+    
 # opens a window to set up a new admin password on first run.
 def create_pwd_screen():
     root.window = CTkToplevel(root)
+    root.window.resizable(False, False)
     root.window.title("Create Admin Password")
     root.window.geometry ("400x200")
     root.window.grab_set()
@@ -119,20 +166,26 @@ def create_pwd_screen():
 # opens a window to prompt for the master password on startup to verify user credentials. 
 def get_pwd_screen():
     root.window = CTkToplevel(root)
+    root.window.resizable(False, False)
     root.window.title("Enter Admin Password")
-    root.window.geometry("400x200")
+    root.window.geometry("400x150")
     root.window.grab_set()
     
     txt_login = CTkEntry(root.window, show="*", font=("Roboto", 14), width=250, placeholder_text="Enter Admin Password")
-    txt_login.pack(pady=(40, 0))
+    txt_login.grid(row=0, column=0, columnspan=2, pady=(30, 0), padx=75)
     txt_login.bind('<Return>', lambda event: get_password(txt_login, lbl_error))
     txt_login.focus()
     
     lbl_error = CTkLabel(root.window, text="", font=("Roboto", 12), text_color="red")
-    lbl_error.pack()
+    lbl_error.grid(row=1, column=0, columnspan=2, pady=5)
     
-    btn_login = CTkButton(root.window, text="Submit", width=250, font=("Roboto", 14), command=lambda: get_password(txt_login, lbl_error))
-    btn_login.pack()
+    btn_cancel = CTkButton(root.window, text="Cancel", font=("Roboto", 14), width=120, fg_color="red", hover_color="dark red")
+    btn_cancel.configure(command=lambda: root.destroy()) # TODO: change action to detect calling method
+    btn_cancel.grid(column=0, row=2, padx=(75, 5))
+    
+    btn_submit = CTkButton(root.window, text="Submit", font=("Roboto", 14), width=120)
+    btn_submit.configure(command=lambda: get_password(txt_login, lbl_error))
+    btn_submit.grid(column=1, row=2, padx=(5, 75))
     
     root.window.protocol("WM_DELETE_WINDOW", sys.exit)
 
@@ -206,16 +259,21 @@ def edit_entry():
         window.title("Edit Entry")
         window.grab_set()
         
-        query_fetch = "SELECT id FROM passwords WHERE website = ? AND username = ? AND email = ? AND password = ?;"
-        cursor.execute(query_fetch, root.selected_index)
+        query_fetch = "SELECT id FROM passwords WHERE website = ? AND username = ? AND email = ?;"
+        params = (root.selected_index[0], root.selected_index[1], root.selected_index[2])
+        cursor.execute(query_fetch, params)
         res = cursor.fetchone()
         if res is None:
             raise ValueError("No Entry Found")
         
+        query_fetch_pwd = "SELECT password FROM passwords WHERE id = ?;"
+        cursor.execute(query_fetch_pwd, [res[0]])
+        res_pwd = cursor.fetchone()
+        
         window.txt_website.insert(0, root.selected_index[0])
         window.txt_username.insert(0, root.selected_index[1])
         window.txt_email.insert(0, root.selected_index[2])
-        window.txt_password.insert(0, root.selected_index[3])
+        window.txt_password.insert(0, root.cryptographer.decrypt_passwd(res_pwd[0].decode()))
 
         window.btn_submit.configure(text="Update Entry", command=lambda: save_entry(
             window, query_update,
@@ -239,8 +297,9 @@ def delete_entry():
     
     window.columnconfigure((0, 1), weight = 1)
     
-    query_fetch = "SELECT id FROM passwords WHERE website = ? AND username = ? AND email = ? AND password = ?;"
-    cursor.execute(query_fetch, root.selected_index)
+    query_fetch = "SELECT id FROM passwords WHERE website = ? AND username = ? AND email = ?;"
+    params = (root.selected_index[0], root.selected_index[1], root.selected_index[2])
+    cursor.execute(query_fetch, params)
     res = cursor.fetchone()
     if res is None:
         raise ValueError("No entry found")
@@ -274,15 +333,17 @@ def save_entry(window, query, website, username, email, password, idx = None):
     elif username == "" and email == "":
         window.lbl_error.configure(text="Either Username or Email must be provided.")
     else:
+        pwd = root.cryptographer.encrypt_passwd(password)
         if idx is not None:
-            cursor.execute(query, (website, username, email, password, idx))
+            cursor.execute(query, (website, username, email, pwd, idx))
         else:
-            cursor.execute(query, (website, username, email, password))
+            cursor.execute(query, (website, username, email, pwd))
         db.commit()
         window.grab_release
         window.destroy()
         load_entries(root.fm_entries)
     root.update_buttons_state()
+
 
 
 cursor.execute("SELECT id = 1 FROM master_password;")
