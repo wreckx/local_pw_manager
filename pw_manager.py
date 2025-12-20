@@ -21,12 +21,14 @@ class PasswordManager(CTk):
         self.title("Password Manager")
         self.geometry("800x500")
         
-        self.is_correct: bool = False
-        
         self.window: CTkToplevel = None
         self.selected_index: int = None
         self.selected_button: CTkButton = None
-        self.bind("<Button-1>", lambda event: self.update_element_states())
+        # bind clicks on the main window to update selection state
+        # pass the event through so the handler can ignore clicks originating
+        # from other toplevels (dialogs) which would otherwise interfere
+        # with dialog buttons like Submit.
+        self.bind("<Button-1>", self.update_element_states)
         
         lbl_title = CTkLabel(self, text="Password Manager", font=("Roboto", 18))
         lbl_title.pack(pady=10)
@@ -85,7 +87,13 @@ class PasswordManager(CTk):
     # updates the states of the edit and delete buttons based on whether an entry is selected or not
     # sets the selected index and selected button to the selected entry in the rolodex
     # hides or reveals the password based on the selected button or entry
-    def update_element_states(self):
+    def update_element_states(self, event=None):
+        if event is not None:
+            try:
+                if event.widget.winfo_toplevel() is not self:
+                    return
+            except Exception:
+                pass
         self.selected_index = self.fm_entries.get_selected_entry()
         self.selected_button = self.fm_entries.selected_button
         
@@ -97,10 +105,22 @@ class PasswordManager(CTk):
             self.btn_delete.configure(state="disabled")
         
         if self.selected_button is not None:
-            for button in root.fm_entries.buttons:
-                button[3].configure(text="<Hidden>")
-            if self.selected_button.grid_info()['column'] == 4:
-                show_password()
+            ignore_mpw = False
+            if event is not None:
+                try:
+                    # if the click came from the control/search frame (or any of its widgets),
+                    # treat it as a control click and don't open the master-password prompt.
+                    w = event.widget
+                    while w is not None:
+                        if w is self.fm_search or w in (self.btn_add, self.btn_edit, self.btn_delete, self.btn_search):
+                            ignore_mpw = True
+                            break
+                        w = getattr(w, 'master', None)
+                except Exception:
+                    pass
+
+            if not ignore_mpw and self.selected_button.grid_info()['column'] == 4:
+                enter_mpw_screen(on_startup=False)
 
         
 db, cursor = dbc.dbconfig()
@@ -123,22 +143,12 @@ def load_entries(frame: Rolodex):
     
     frame.load_entries(res_mod)
 
-# reveals the password for the selected entry if the password button of the selected
-# entry is clicked. Hides the password again if a different entry is clicked or
-# if the current entry is deselected.    
-def show_password():
-
-    root.is_correct = False
-    enter_mpw_screen(on_cancel=root.window.destroy(), on_submit=reveal_password())
-    # if not root.is_correct:
-    #     reveal_password()
-
 # opens a window to reveal the password for the selected entry.
 # executed after the master password is verified.        
-def reveal_password():
+def show_password():
     if root.selected_index is None or root.selected_button is None:
         return
-    
+    root.window.destroy()
     try:
         query = "SELECT password FROM passwords WHERE website = ? AND username = ? AND email = ?;"
         params = (root.selected_index[0], root.selected_index[1], root.selected_index[2])
@@ -166,10 +176,6 @@ def reveal_password():
         exc_type, exc_value, exc_tb = sys.exc_info()
         line_number = exc_tb.tb_lineno
         print(f"ERROR: {type(e).__name__} on line {line_number}: {e}")
-            
-def close_program():
-    root.destroy()
-    sys.exit()
     
 # opens a window to set up a new admin password on first run.
 def create_mpw_screen():
@@ -195,7 +201,7 @@ def create_mpw_screen():
     root.window.protocol("WM_DELETE_WINDOW", sys.exit)
 
 # opens a window to prompt for the master password on startup to verify user credentials. 
-def enter_mpw_screen(on_cancel = close_program, on_submit = None):
+def enter_mpw_screen(on_startup: bool = True):
     root.window = CTkToplevel(root)
     root.window.resizable(False, False)
     root.window.title("Enter Admin Password")
@@ -204,43 +210,28 @@ def enter_mpw_screen(on_cancel = close_program, on_submit = None):
     
     txt_login = CTkEntry(root.window, show="*", font=("Roboto", 14), width=250, placeholder_text="Enter Admin Password")
     txt_login.grid(row=0, column=0, columnspan=2, pady=(30, 0), padx=75)
-    txt_login.bind('<Return>', lambda e: get_master_password())
     txt_login.focus()
     
     lbl_error = CTkLabel(root.window, text="", font=("Roboto", 12), text_color="red")
     lbl_error.grid(row=1, column=0, columnspan=2, pady=5)
     
     btn_cancel = CTkButton(root.window, text="Cancel", font=("Roboto", 14), width=120, fg_color="red", hover_color="dark red")
-    btn_cancel.configure(command=lambda: on_cancel()) # TODO: change action to detect calling method
     btn_cancel.grid(column=0, row=2, padx=(75, 5))
     
     btn_submit = CTkButton(root.window, text="Submit", font=("Roboto", 14), width=120)
-    btn_submit.configure(command=lambda: get_master_password() if on_submit is None else on_submit())
     btn_submit.grid(column=1, row=2, padx=(5, 75))
     
-    root.window.protocol("WM_DELETE_WINDOW", on_cancel)
+    if on_startup:
+        txt_login.bind('<Return>', lambda e: get_master_password(txt_login, lbl_error))
+        btn_submit.configure(command=lambda: get_master_password(txt_login, lbl_error))
+        btn_cancel.configure(command=lambda: sys.exit())
+        root.window.protocol("WM_DELETE_WINDOW", sys.exit)
+    else:
+        btn_submit.configure(command=lambda: show_password())
+        txt_login.bind('<Return>', lambda e: show_password())
+        btn_cancel.configure(command=lambda: root.window.destroy())
+        root.window.protocol("WM_DELETE_WINDOW", root.window.destroy)
     
-    print(on_submit)
-    
-    # Verifies the entered password against the stored hash in the database (Submit button event for enter_mpw_screen).        
-    def get_master_password():
-        query = "SELECT password FROM master_password WHERE id = 1;"
-        cursor.execute(query)
-        res = cursor.fetchone()
-        hashed_pwd = res[0]
-        if (mpw_hash.verify_pwd(txt_login.get(), hashed_pwd)):
-            if on_submit is None:
-                load_entries(root.fm_entries)
-                root.window.destroy()
-                root.is_correct = True
-            else:
-                root.is_correct = True
-                root.window.destroy()
-        else:
-            lbl_error.configure(text="Incorrect Password. Please try again.")
-            txt_login.delete(0, 'end')
-            txt_login.focus()
-            root.is_correct = False
 
 # Creates a master password and stores it in the database (Submit button event for create_mpw_screen).    
 def create_master_password(text1, text2, label):
@@ -258,6 +249,21 @@ def create_master_password(text1, text2, label):
         text2.delete(0, 'end')
         text1.focus()
 
+# Verifies the entered password against the stored hash in the database (Submit button event for enter_mpw_screen).        
+def get_master_password(text: CTkEntry, label: CTkLabel):
+    query = "SELECT password FROM master_password WHERE id = 1;"
+    cursor.execute(query)
+    res = cursor.fetchone()
+    hashed_pwd = res[0]
+    if (mpw_hash.verify_pwd(text.get(), hashed_pwd)):
+        load_entries(root.fm_entries)
+        root.window.destroy()
+        root.selected_button = None
+        root.selected_index = None
+    else:
+        label.configure(text="Incorrect Password. Please try again.")
+        text.delete(0, 'end')
+        text.focus()
 
 # Searches for password entries matching the search term and displays them. Returns all entries if search term is empty.
 def search_entries(search_term: str, frame: Rolodex = root.fm_entries):
@@ -292,6 +298,7 @@ def add_entry():
     
 # Opens a window to edit a selected existing password entry (Edit button event).
 def edit_entry():
+    enter_mpw_screen(on_startup=False)
     query_update = "UPDATE passwords SET website = ?, username = ?, email = ?, password = ? WHERE id = ?;"
     try:
         window = EntryDialog(root)
@@ -362,7 +369,7 @@ def delete_entry():
         window.destroy()
         load_entries(root.fm_entries)
         root.update_element_states()
-    
+
 # Function that gets called for both add and edit buttons in entry dialog windows (Confirm button event for Add and Edit button).
 # Checks if website and password are not none, and ensures at least username or password is not none.
 # Adds a new entry if idx = None and updates a query otherwise. reloads entries and closes window.
